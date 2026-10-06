@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>猜数字游戏</title>
+<style>
+  body {
+    font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+    background: #f5f6f8;
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px;
+    margin: 0;
+  }
+  .card {
+    width: 100%;
+    max-width: 440px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.08);
+    padding: 24px;
+  }
+  h1 { font-size: 19px; margin: 0 0 16px; }
+  #output {
+    height: 280px;
+    overflow-y: auto;
+    background: #fafbfc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .line { margin: 2px 0; }
+  .sys  { color: #6b7280; }
+  .big  { color: #dc2626; }
+  .small{ color: #2563eb; }
+  .win  { color: #16a34a; font-weight: 600; }
+  .lose { color: #b91c1c; font-weight: 600; }
+  .warn { color: #d97706; }
+  .row { display: flex; gap: 8px; margin-top: 12px; }
+  input {
+    flex: 1; padding: 10px 12px; font-size: 15px;
+    border: 1px solid #d1d5db; border-radius: 8px; outline: none;
+  }
+  input:focus { border-color: #2563eb; }
+  button {
+    padding: 10px 18px; font-size: 15px; border: none; border-radius: 8px;
+    background: #2563eb; color: #fff; cursor: pointer;
+  }
+  button:hover { background: #1d4ed8; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>猜数字（1~100，最多 7 次）</h1>
+  <div id="output"></div>
+  <div class="row">
+    <input id="input" type="text" autocomplete="off" placeholder="输入数字后按回车">
+    <button id="btn">确定</button>
+  </div>
+</div>
+
+<script>
+/* ============ 配置 ============ */
+const MIN = 1, MAX = 100, MAX_TRIES = 7;
+
+/* ============ 页面元素 ============ */
+const outputEl = document.getElementById('output');
+const inputEl  = document.getElementById('input');
+const btnEl    = document.getElementById('btn');
+
+/* ============ 游戏状态 ============ */
+let secret;              // 正确答案
+let tries;               // 已用的"有效"次数
+let state;               // playing / over / done
+
+/* ---------- 输出一行 ---------- */
+function log(text, cls = 'sys') {
+  const p = document.createElement('p');
+  p.className = 'line ' + cls;
+  p.textContent = text;
+  outputEl.appendChild(p);
+  outputEl.scrollTop = outputEl.scrollHeight;   // 自动滚到底部
+}
+
+/* ---------- 开新一局 ---------- */
+function newGame() {
+  secret = Math.floor(Math.random() * (MAX - MIN + 1)) + MIN;  // 1~100
+  tries  = 0;
+  state  = 'playing';
+  outputEl.innerHTML = '';
+  log(`猜一个 ${MIN}~${MAX} 的数字：（最多 ${MAX_TRIES} 次，范围外的输入不计次数）`);
+  inputEl.value = '';
+  inputEl.focus();
+}
+
+/* ---------- 询问是否再来一局 ---------- */
+function askReplay() {
+  state = 'over';
+  log('再来一局吗？输入 y 再玩一局，输入 n 结束。', 'sys');
+  inputEl.focus();
+}
+
+/* ---------- 核心：处理一次提交 ---------- */
+function submit() {
+  const raw = inputEl.value.trim();
+  inputEl.value = '';
+  inputEl.focus();
+
+  /* ===== 1. 已经结束的局，只处理 y / n ===== */
+  if (state !== 'playing') {
+    const s = raw.toLowerCase();
+    if (s === 'y') { newGame(); return; }
+    if (s === 'n') {
+      log('好的，游戏结束，再见！', 'sys');
+      state = 'done';
+      return;
+    }
+    log(state === 'done' ? '游戏已结束，输入 y 可再玩一局。' : '请输入 y 或 n。', 'warn');
+    return;
+  }
+
+  /* ===== 2. 输入验证（这些都不计入次数）===== */
+  if (raw === '') {
+    log('请先输入一个数字。', 'warn');
+    return;
+  }
+  if (!/^[+-]?\d+$/.test(raw)) {          // 只允许整数
+    log('输入无效：请输入整数。', 'warn');
+    return;
+  }
+  const guess = Number(raw);
+  if (guess < MIN || guess > MAX) {
+    log(`范围外：请输入 ${MIN}~${MAX} 之间的整数（本次不计入次数）。`, 'warn');
+    return;
+  }
+
+  /* ===== 3. 有效的一次猜测 ===== */
+  tries++;
+
+  if (guess === secret) {
+    log(`恭喜，猜中！共猜 ${tries} 次。`, 'win');
+    askReplay();
+    return;
+  }
+
+  log(guess > secret ? '大了' : '小了', guess > secret ? 'big' : 'small');
+
+  if (tries >= MAX_TRIES) {
+    log(`很遗憾，${MAX_TRIES} 次都没猜中，正确答案是 ${secret}。`, 'lose');
+    askReplay();
+  } else {
+    log(`还剩 ${MAX_TRIES - tries} 次机会。`, 'sys');
+  }
+}
+
+/* ============ 事件绑定 ============ */
+btnEl.addEventListener('click', submit);
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') submit();       // 回车提交
+});
+
+/* ============ 启动 ============ */
+newGame();
+</script>
+</body>
+</html>
